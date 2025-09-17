@@ -1,4 +1,17 @@
 
+# Update
+
+This branch contains a PyTorch implementation of the original `msp-tsne` library.
+
+Enhancements include:
+
+* Updated and expanded examples in the `examples/` directory.
+* A new Jupyter Notebook (`notebooks/test.ipynb`) for model comparison and validation.
+
+
+---
+
+
 # Multiscale Parametric t-SNE
 Reference implementation for the paper: ["Perplexity-free Parametric t-SNE"](#).
 

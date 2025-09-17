@@ -1,4 +1,6 @@
 
+import setuptools
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
@@ -18,12 +20,13 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     install_requires=[
         'numpy',
         'numba',
         'scikit-learn',
         'tqdm',
-        'tensorflow>=2.11,<3'
+        'torch>=2.6,<3',
+        'tensorboard>=2.11'
     ]
 )

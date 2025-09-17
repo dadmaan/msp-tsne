@@ -8,10 +8,10 @@ import numba
 import sklearn
 from sklearn.base import BaseEstimator, TransformerMixin
 
-import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, InputLayer
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 
 @numba.jit(nopython=True, error_model='numpy')          # https://github.com/numba/numba/issues/4360
@@ -92,7 +92,8 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
                 nl1 = 1000,
                 nl2 = 500,
                 nl3 = 250,
-                logdir=None, verbose=0):
+                logdir=None, verbose=0,
+                device='auto', lr=1e-3):
         
         self.n_components = n_components
         self.perplexity = perplexity
@@ -118,8 +119,19 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
         # Tensorboard
         self.logdir = logdir
 
+        # Optimizer params
+        self.lr = lr
+
+        # Device
+        if device == 'auto':
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = torch.device(device)
+
         # Internals
         self._model = None
+        self._optimizer = None
+        self._writer = None
         
     def fit(self, X, y=None):
                 
@@ -141,10 +153,11 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
 
         self._log('Start training..')
         
-        # TensorBoard (TF2 summaries)
-        writer = None
+        # TensorBoard (PyTorch SummaryWriter)
         if self.logdir is not None:
-            writer = tf.summary.create_file_writer(self.logdir)
+            self._writer = SummaryWriter(log_dir=self.logdir)
+        else:
+            self._writer = None
 
         # Early stopping
         es_patience = self.early_stopping_epochs
@@ -155,6 +168,7 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
         P = self._calculate_P(X)                
         
         epoch = 0
+        self._model.train()
         while epoch < self.n_iter and not es_stop:
 
             # Make copy
@@ -168,38 +182,48 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
                 _P *= self.early_exaggeration_value
 
             # Actual training
-            loss = 0.0
+            loss_value = 0.0
             n_batches = 0
             for i in range(0, n_sample, self.batch_size):
                 
                 batch_slice = slice(i, i + self.batch_size)
-                X_batch, _P_batch = X[batch_slice], _P[batch_slice]
+                X_batch_np, _P_batch_np = X[batch_slice], _P[batch_slice]
                 
                 # Shuffle entries
                 p_idxs = np.random.permutation(self.batch_size)
                 # Shuffle data
-                X_batch = X_batch[p_idxs]
+                X_batch_np = X_batch_np[p_idxs]
                 # Shuffle rows and cols of P
-                _P_batch = _P_batch[p_idxs, :]
-                _P_batch = _P_batch[:, p_idxs]
+                _P_batch_np = _P_batch_np[p_idxs, :]
+                _P_batch_np = _P_batch_np[:, p_idxs]
 
-                loss += self._model.train_on_batch(X_batch, _P_batch)
+                # Convert to torch tensors on device
+                X_batch = torch.from_numpy(X_batch_np).to(self.device, dtype=torch.float32)
+                P_batch = torch.from_numpy(_P_batch_np).to(self.device, dtype=torch.float32)
+
+                # Forward + backward + step
+                self._optimizer.zero_grad(set_to_none=True)
+                Y = self._model(X_batch)
+                loss = self._kl_divergence(P_batch, Y)
+                loss.backward()
+                self._optimizer.step()
+
+                loss_value += float(loss.detach().cpu().item())
                 n_batches += 1
             
             # End-of-epoch: summarize
-            loss /= n_batches
+            loss_value /= n_batches
 
             if epoch % 10 == 0:
-                self._log('Epoch: {0} - Loss: {1:.3f}'.format(epoch, loss))
+                self._log('Epoch: {0} - Loss: {1:.3f}'.format(epoch, loss_value))
             
-            if writer is not None:
-                with writer.as_default():
-                    tf.summary.scalar('loss', loss, step=epoch)
-                    writer.flush()
+            if self._writer is not None:
+                self._writer.add_scalar('loss', loss_value, global_step=epoch)
+                self._writer.flush()
 
             # Check early-stopping condition
-            if loss < es_loss and np.abs(loss - es_loss) > self.early_stopping_min_improvement:
-                es_loss = loss
+            if loss_value < es_loss and np.abs(loss_value - es_loss) > self.early_stopping_min_improvement:
+                es_loss = loss_value
                 es_patience = self.early_stopping_epochs
             else:
                 es_patience -= 1
@@ -211,6 +235,9 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
             # Going to the next iteration...
             del _P    
             epoch += 1
+
+        if self._writer is not None:
+            self._writer.close()
 
         self._log('Done')
 
@@ -227,7 +254,11 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
                 ' with appropriate arguments before using this method.')
 
         self._log('Predicting embedding points..', end=' ')
-        X_new = self.model.predict(X, batch_size=X.shape[0])
+        self._model.eval()
+        with torch.no_grad():
+            X_tensor = torch.from_numpy(X).to(self.device, dtype=torch.float32)
+            Y = self._model(X_tensor)
+            X_new = Y.detach().cpu().numpy()
 
         self._log('Done')
 
@@ -257,37 +288,38 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
 
     def _kl_divergence(self, P, Y):
         # y_true: P (pairwise probabilities); y_pred: Y (low-dim outputs)
-        Y = tf.convert_to_tensor(Y)
-        P = tf.convert_to_tensor(P)
         dtype = Y.dtype
-        eps = tf.constant(1e-15, dtype=dtype)
+        eps = torch.tensor(1e-15, dtype=dtype, device=Y.device)
 
         # Pairwise distances
-        sum_Y = tf.reduce_sum(tf.square(Y), axis=1, keepdims=True)  # (B,1)
-        D = sum_Y + tf.transpose(sum_Y) - 2.0 * tf.linalg.matmul(Y, Y, transpose_b=True)  # (B,B)
+        sum_Y = torch.sum(Y * Y, dim=1, keepdim=True)  # (B,1)
+        D = sum_Y + sum_Y.T - 2.0 * (Y @ Y.T)  # (B,B)
 
-        Q = tf.math.pow(1.0 + D / tf.cast(self.alpha, dtype), - (self.alpha + 1.0) / 2.0)
+        Q = torch.pow(1.0 + D / float(self.alpha), - (self.alpha + 1.0) / 2.0)
 
         # Zero out diagonal and normalize
-        batch_size = tf.shape(Y)[0]
-        mask = 1.0 - tf.eye(batch_size, dtype=dtype)
+        batch_size = Y.shape[0]
+        mask = 1.0 - torch.eye(batch_size, dtype=dtype, device=Y.device)
         Q = Q * mask
-        Q_sum = tf.reduce_sum(Q)
-        Q = tf.where(Q_sum > 0, Q / Q_sum, Q)
-        Q = tf.maximum(Q, eps)
+        Q_sum = torch.sum(Q)
+        Q = torch.where(Q_sum > 0, Q / Q_sum, Q)
+        Q = torch.maximum(Q, eps)
 
-        C = tf.math.log((P + eps) / (Q + eps))
-        C = tf.reduce_sum(P * C)
+        C = torch.log((P + eps) / (Q + eps))
+        C = torch.sum(P * C)
         return C
 
     def _build_model(self, n_input, n_output):
-        self._model = Sequential()
-        self._model.add(InputLayer(input_shape=(n_input,)))
-        # Layer adding loop
-        for n in [self.nl1, self.nl2, self.nl3]:
-            self._model.add(Dense(n, activation='relu'))
-        self._model.add(Dense(n_output, activation='linear'))
-        self._model.compile(optimizer='adam', loss=self._kl_divergence)
+        layers = []
+        layers.append(nn.Linear(n_input, self.nl1))
+        layers.append(nn.ReLU())
+        layers.append(nn.Linear(self.nl1, self.nl2))
+        layers.append(nn.ReLU())
+        layers.append(nn.Linear(self.nl2, self.nl3))
+        layers.append(nn.ReLU())
+        layers.append(nn.Linear(self.nl3, n_output))
+        self._model = nn.Sequential(*layers).to(self.device)
+        self._optimizer = optim.Adam(self._model.parameters(), lr=self.lr)
 
     def _log(self, *args, **kwargs):
         """logging with given arguments and keyword arguments"""

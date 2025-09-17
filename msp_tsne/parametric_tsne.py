@@ -8,13 +8,10 @@ import numba
 import sklearn
 from sklearn.base import BaseEstimator, TransformerMixin
 
-import keras.backend as K
-from keras.models import Sequential
-from keras.layers import Dense, InputLayer, Dropout
-from keras.callbacks import TensorBoard
-from keras.optimizers import Adam
-
 import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, InputLayer
 
 
 @numba.jit(nopython=True, error_model='numpy')          # https://github.com/numba/numba/issues/4360
@@ -78,14 +75,8 @@ def x2p(X, perplexity, n_jobs=None):
 
     return P
 
-def write_log(callback, names, logs, batch_no):
-    for name, value in zip(names, logs):
-        summary = tf.Summary()
-        summary_value = summary.value.add()
-        summary_value.simple_value = value
-        summary_value.tag = name
-        callback.writer.add_summary(summary, batch_no)
-        callback.writer.flush()
+def _noop(*args, **kwargs):
+    return None
 
 
 class ParametricTSNE(BaseEstimator, TransformerMixin):
@@ -150,12 +141,10 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
 
         self._log('Start training..')
         
-        # Tensorboard
-        if not self.logdir == None:
-            callback = TensorBoard(self.logdir)
-            callback.set_model(self._model)
-        else:
-            callback = None
+        # TensorBoard (TF2 summaries)
+        writer = None
+        if self.logdir is not None:
+            writer = tf.summary.create_file_writer(self.logdir)
 
         # Early stopping
         es_patience = self.early_stopping_epochs
@@ -203,9 +192,10 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
             if epoch % 10 == 0:
                 self._log('Epoch: {0} - Loss: {1:.3f}'.format(epoch, loss))
             
-            if callback is not None:
-                # Write log
-                write_log(callback, ['loss'], [loss], epoch)
+            if writer is not None:
+                with writer.as_default():
+                    tf.summary.scalar('loss', loss, step=epoch)
+                    writer.flush()
 
             # Check early-stopping condition
             if loss < es_loss and np.abs(loss - es_loss) > self.early_stopping_min_improvement:
@@ -266,26 +256,38 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
         return P
 
     def _kl_divergence(self, P, Y):
-        sum_Y = K.sum(K.square(Y), axis=1)
-        eps = K.variable(1e-15)
-        D = sum_Y + K.reshape(sum_Y, [-1, 1]) - 2 * K.dot(Y, K.transpose(Y))
-        Q = K.pow(1 + D / self.alpha, -(self.alpha + 1) / 2)
-        Q *= K.variable(1 - np.eye(self.batch_size))
-        Q /= K.sum(Q)
-        Q = K.maximum(Q, eps)
-        C = K.log((P + eps) / (Q + eps))
-        C = K.sum(P * C)
+        # y_true: P (pairwise probabilities); y_pred: Y (low-dim outputs)
+        Y = tf.convert_to_tensor(Y)
+        P = tf.convert_to_tensor(P)
+        dtype = Y.dtype
+        eps = tf.constant(1e-15, dtype=dtype)
 
+        # Pairwise distances
+        sum_Y = tf.reduce_sum(tf.square(Y), axis=1, keepdims=True)  # (B,1)
+        D = sum_Y + tf.transpose(sum_Y) - 2.0 * tf.linalg.matmul(Y, Y, transpose_b=True)  # (B,B)
+
+        Q = tf.math.pow(1.0 + D / tf.cast(self.alpha, dtype), - (self.alpha + 1.0) / 2.0)
+
+        # Zero out diagonal and normalize
+        batch_size = tf.shape(Y)[0]
+        mask = 1.0 - tf.eye(batch_size, dtype=dtype)
+        Q = Q * mask
+        Q_sum = tf.reduce_sum(Q)
+        Q = tf.where(Q_sum > 0, Q / Q_sum, Q)
+        Q = tf.maximum(Q, eps)
+
+        C = tf.math.log((P + eps) / (Q + eps))
+        C = tf.reduce_sum(P * C)
         return C
 
     def _build_model(self, n_input, n_output):
         self._model = Sequential()
-        self._model.add(InputLayer((n_input,)))
+        self._model.add(InputLayer(input_shape=(n_input,)))
         # Layer adding loop
         for n in [self.nl1, self.nl2, self.nl3]:
             self._model.add(Dense(n, activation='relu'))
         self._model.add(Dense(n_output, activation='linear'))
-        self._model.compile('adam', self._kl_divergence)
+        self._model.compile(optimizer='adam', loss=self._kl_divergence)
 
     def _log(self, *args, **kwargs):
         """logging with given arguments and keyword arguments"""

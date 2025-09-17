@@ -1,4 +1,16 @@
 
+# Update
+
+Updated to TensorFlow 2.x. The original TF 1.x code has been migrated for compatibility.
+
+Also:
+
+* Added docker support. Run `docker-compose up --build` in your terminal.
+* Checkout new `pytorch` branch for pytorch implementation and some (more) examples.
+
+---
+
+
 # Multiscale Parametric t-SNE
 Reference implementation for the paper: ["Perplexity-free Parametric t-SNE"](#).
 

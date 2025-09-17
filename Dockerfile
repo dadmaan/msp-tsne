@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-devel
+FROM tensorflow/tensorflow:2.13.0
 
 # Install git as root
 USER root
@@ -16,11 +16,11 @@ WORKDIR /home/jovyan/work
 ENV PYTHONPATH="/home/jovyan/work/src:${PYTHONPATH}"
 
 # Install Jupyter Notebook
-RUN pip install jupyter
+RUN pip install --no-cache-dir jupyter
 
 # Install Python packages
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
 RUN pip install --no-cache-dir /tmp/.
+RUN pip install --no-cache-dir /tmp/requirements.txt
 
 # To run jupyter in remote development scenario with VSCode
 # from https://stackoverflow.com/questions/63998873/vscode-how-to-run-a-jupyter-notebook-in-a-docker-container-over-a-remote-serve

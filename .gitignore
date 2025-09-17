@@ -171,3 +171,5 @@ events.out.tfevents.*
 
 # FC
 *.egg-info
+
+data/

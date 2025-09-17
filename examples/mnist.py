@@ -30,7 +30,7 @@ def plot(X_train, X_test, y_train, y_test):
         ax2.scatter(X_full[y_full == c, 0], X_full[y_full == c, 1], s=8, color=colors[c], alpha=.6)
     fig2.tight_layout()
 
-if __name__ == '__main__':
+def main():
     X, y = load_digits(return_X_y=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.25, random_state=0)
 
@@ -55,3 +55,5 @@ if __name__ == '__main__':
     # Display all created figures at the end.
     plt.show()
 
+if __name__ == '__main__':
+    main()

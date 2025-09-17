@@ -175,3 +175,4 @@ events.out.tfevents.*
 data/
 docs/
 wandb/
+!scripts/

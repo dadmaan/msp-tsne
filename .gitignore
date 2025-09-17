@@ -172,4 +172,6 @@ events.out.tfevents.*
 # FC
 *.egg-info
 
-data/
+data/*
+docs/*
+wandb/*

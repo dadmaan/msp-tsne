@@ -2,5 +2,6 @@ pandas
 matplotlib
 seaborn
 plotly
+wandb
 torch>=2.6.0
 tensorboard>=2.11

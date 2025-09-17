@@ -174,3 +174,4 @@ events.out.tfevents.*
 
 data/
 wandb/*
+docs/*

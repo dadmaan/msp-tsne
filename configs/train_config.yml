@@ -1,0 +1,38 @@
+# MSP t-SNE Training Configuration
+
+# Data configuration
+data:
+  features: null  # Path to features file, null = use sklearn.datasets.load_digits()
+  labels: null    # Path to separate labels file
+  label_column: null  # Column name in features file to extract as labels
+  format: auto    # File format: auto, csv, npy, npz, pkl
+  allow_missing_labels: true  # Allow missing label columns
+
+# Preprocessing configuration
+preprocessing:
+  scaler: StandardScaler  # StandardScaler or MinMaxScaler
+
+# Model hyperparameters
+model:
+  n_components: 2
+  n_iter: 1000
+  batch_size: 500
+  early_exaggeration_epochs: 50
+  early_exaggeration_value: 4.0
+  early_stopping_epochs: 1000
+  early_stopping_min_improvement: 0.01
+  alpha: 1.0
+  lr: 0.001
+  nl1: 1000
+  nl2: 500
+  nl3: 250
+  verbose: 1
+
+# Output configuration
+output:
+  model_dir: "./models"
+  model_name: "msp_tsne_model"
+  save_embeddings: true
+  save_preprocessing: true
+  save_metrics: true
+  overwrite_existing: false

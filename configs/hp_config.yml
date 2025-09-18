@@ -2,10 +2,11 @@
 
 # Data configuration
 data:
-  features: null  # Path to features file, null = use sklearn.datasets.load_digits()
+  features: /home/jovyan/work/data/features.json  # Path to features file, null = use sklearn.datasets.load_digits()
   labels: null    # Path to separate labels file
   label_column: null  # Column name in features file to extract as labels
   format: auto    # File format: auto, csv, npy, npz, pkl
+  allow_missing_labels: true  # New option!
 
 # Project settings
 project: "msp-tsne-MNIST-sweep"

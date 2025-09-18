@@ -4,7 +4,6 @@
 ## Badges
 ![Python](https://img.shields.io/badge/python-3.6%2B-blue.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Build](https://img.shields.io/github/actions/workflow/status/dadmaan/msp-tsne/ci.yml?branch=pytorch)
 [![W&B Sweeps](https://img.shields.io/badge/W%26B-Sweeps-orange)](https://wandb.ai/)
 
 PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE), featuring:

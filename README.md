@@ -1,12 +1,10 @@
 
 # Update
 
-Updated to TensorFlow 2.x. The original TF 1.x code has been migrated for compatibility.
+Updated to TensorFlow 2.x. The original TF 1.x code has been migrated for compatibility. 
 
-Also:
+Also added docker support. Run `docker-compose up --build` in your terminal.
 
-* Added docker support. Run `docker-compose up --build` in your terminal.
-* Checkout new `pytorch` branch for pytorch implementation and some (more) examples and functionalities.
 
 ---
 

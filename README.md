@@ -1,69 +1,153 @@
 
-# Update
+# Multiscale Parametric t-SNE (MSP-tSNE)
 
-This branch contains a PyTorch implementation of the original `msp-tsne` library.
+## Badges
+![Python](https://img.shields.io/badge/python-3.6%2B-blue.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![Build](https://img.shields.io/github/actions/workflow/status/dadmaan/msp-tsne/ci.yml?branch=pytorch)
+[![W&B Sweeps](https://img.shields.io/badge/W%26B-Sweeps-orange)](https://wandb.ai/)
 
-Enhancements include:
+PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE), featuring:
 
-* Updated and expanded examples in the `examples/` directory.
-* A new Jupyter Notebook (`notebooks/test.ipynb`) for model comparison and validation.
-
+## Table of Contents
+1. [Getting Started](#getting-started)
+2. [Sklearn Pipeline Usage](#sklearn-pipeline-usage)
+3. [Training Script](#training-script)
+4. [Hyperparameter Tuning & W&B Integration](#hyperparameter-tuning--wb-integration)
+5. [Neighborhood Preservation Metric](#neighborhood-preservation-metric)
+6. [Model Artifacts](#model-artifacts)
+7. [Authors & Acknowledgements](#authors--acknowledgements)
 
 ---
 
-
-# Multiscale Parametric t-SNE
-Reference implementation for the paper: ["Perplexity-free Parametric t-SNE"](#).
-
-Multiscale extension of parametric t-SNE which relieves the user from tuning the `perplexity` parameter (either by hand or via cross-validation).
-This implementation exploits [keras](https://keras.io/) to provide GPU acceleration during model training and inference, while maintaining a [scikit-learn](https://scikit-learn.org/)
-compatible interface that allows to use `MultiscaleParamerticTSNE` as part of a [pipeline](https://scikit-learn.org/stable/modules/compose.html#combining-estimators) replacing the library t-SNE implementation.
-
-In addition to the perplexity-free model, a refined `ParamerticTSNE` model is released.
-As for the multiscale implementation, it favours of GPU acceleration for neural network training and inference and is sklearn compatible. This allows the user to search for the best perplexity parameter using `sklearn.model_selection.GridSearchCV` module, for example.      
-
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
 ### Prerequisites
+Tested with Python 3.6+. All required packages are listed in `setup.py` and `requirements.txt`.
 
-This program was tested under Python 3.6. All the required packages are contained in `setup.py`
-
-### Installing
-
-After cloning this repository, install the package by running the following:
-
-```
-pip3 install .
+### Installation
+```bash
+pip install .
 ```
 
-## Deployment
+---
 
-Simply create a `ParametricTSNE` or `MultiscaleParametricTSNE` instance. The interface was designed similarly to that of scikit-learn estimators.
+## Sklearn Pipeline Usage
 
-```python
-from msp_tsne import MultiscaleParametricTSNE
+Run MSP t-SNE using sklearn's Pipeline:
 
-transformer = MultiscaleParametricTSNE()
-
-# suppose you have the dataset X
-X_new = transformer.fit_transform(X)
-
-# transform new dataset X2 with pre-trained model
-X2_new = transformer.transform(X2)
+```bash
+python scripts/train_sklearn_tsne.py --config configs/sklearn_config.yml
 ```
 
-## Built With
+**Features:**
+- Loads sklearn digits dataset
+- Preprocessing (StandardScaler/MinMaxScaler)
+- MSP t-SNE embedding
+- Evaluates trustworthiness & silhouette score
+- Saves pipeline, embeddings, metrics
 
-- [scikit-learn](http://scikit-learn.org/stable/) - Extensive machine learning framework
+**Example config:**
+```yaml
+data:
+	source: sklearn_digits
+preprocessing:
+	scaler: StandardScaler
+algorithm:
+	n_components: 2
+	n_iter: 1000
+	batch_size: 500
+	nl1: 1000
+	nl2: 500
+	nl3: 250
+output:
+	model_path: "./models/msp_tsne_pipeline.pkl"
+	embeddings_path: "./models/msp_tsne_embeddings.npy"
+```
 
-- [Keras](https://keras.io) - Deep learning framework wrapper that supports TensorFlow, Theano, and CNTK
+---
 
-## Authors
+## Training Script
 
-- __Francesco Crecchi__ - Research and implementation - [FrancescoCrecchi](https://github.com/FrancescoCrecchi)
+Train MSP t-SNE with custom data/config:
+
+```bash
+python scripts/train_msp_tsne.py --config configs/train_config.yml [--seed SEED]
+```
+
+**Arguments:**
+- `--config`: Path to YAML config (required)
+- `--seed`: Random seed (default: 42)
+
+**Example config:**
+```yaml
+data:
+	features: null
+	labels: null
+	label_column: null
+	format: auto
+preprocessing:
+	scaler: StandardScaler
+model:
+	n_components: 2
+	n_iter: 1000
+	batch_size: 500
+	early_exaggeration_epochs: 50
+	early_exaggeration_value: 4.0
+	early_stopping_epochs: 1000
+	early_stopping_min_improvement: 0.01
+```
+
+---
+
+## Hyperparameter Tuning & W&B Integration
+
+Automated hyperparameter sweeping with Weights & Biases (W&B):
+
+**Script:** `scripts/hyperparameter_tuning.py`
+
+**Config:** `configs/hp_config.yml`
+
+**Usage:**
+```bash
+python scripts/hyperparameter_tuning.py --config configs/hp_config.yml --mode sweep --count 50
+python scripts/hyperparameter_tuning.py --config configs/hp_config.yml --mode smoke_test
+```
+
+**Features:**
+- W&B integration for experiment tracking
+- Bayesian optimization sweeps
+- Full parameter search space (neural architecture, training, optimization, preprocessing)
+- Automatic logging of metrics & hyperparameters
+- Parallel execution with `wandb.agent()`
+
+**Metrics Tracked:**
+- Trustworthiness score (primary)
+- Silhouette score
+- Neighborhood preservation ratio
+- Training time
+- Final KL divergence loss
+
+---
+
+## Neighborhood Preservation Metric
+
+Measures how well k-nearest neighbor relationships are preserved between original and embedded spaces.
+- Uses sklearn's NearestNeighbors
+- Overlap percentage for each sample
+- Logged as `neighborhood_preservation_ratio` in W&B
+
+---
+
+## Model Artifacts
+
+Artifacts saved for each experiment:
+- `msp_tsne_model.pth`: Trained neural network state dict
+- `model_config.pt`: Model configuration parameters
+- Uploaded to W&B via `wandb.save()`
+
+---
 
 ## Acknowledgements
 
-- This project was forked from [zaburo-ch's implementation](https://github.com/zaburo-ch/Parametric-t-SNE-in-Keras).
+- This repository was originally forked from [Francesco Crecchi's implementation](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE).

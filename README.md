@@ -15,7 +15,7 @@ PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/Franc
 4. [Hyperparameter Tuning & W&B Integration](#hyperparameter-tuning--wb-integration)
 5. [Neighborhood Preservation Metric](#neighborhood-preservation-metric)
 6. [Model Artifacts](#model-artifacts)
-7. [Authors & Acknowledgements](#authors--acknowledgements)
+7. [Acknowledgements](#authors--acknowledgements)
 
 ---
 

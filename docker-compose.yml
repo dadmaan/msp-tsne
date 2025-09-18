@@ -3,7 +3,7 @@ services:
   multi-tsne:
     build: .
     ports:
-      - "8888:8888"
+      - "8881:8881"
     volumes:
       - .:/home/jovyan/work
     environment:

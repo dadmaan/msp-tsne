@@ -37,7 +37,7 @@ RUN jupyter lab --generate-config && \
     echo "c.ServerApp.open_browser = False" >> ~/.jupyter/jupyter_lab_config.py
 
 # Expose Jupyter port
-EXPOSE 8888
+EXPOSE 8881
 
 # Start Jupyter Lab automatically
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8881", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]

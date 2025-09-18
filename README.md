@@ -1,5 +1,5 @@
 
-# Torch Multiscale Parametric t-SNE (MSP-tSNE)
+# PyTorch Multiscale Parametric t-SNE (MSP-tSNE)
 
 ## Badges
 ![Python](https://img.shields.io/badge/python-3.6%2B-blue.svg)

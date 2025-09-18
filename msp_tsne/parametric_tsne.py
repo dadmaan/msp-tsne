@@ -132,6 +132,7 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
         self._model = None
         self._optimizer = None
         self._writer = None
+        self.loss_history = []
         
     def fit(self, X, y=None):
                 
@@ -221,6 +222,9 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
                 self._writer.add_scalar('loss', loss_value, global_step=epoch)
                 self._writer.flush()
 
+            # Track loss history
+            self.loss_history.append(loss_value)
+
             # Check early-stopping condition
             if loss_value < es_loss and np.abs(loss_value - es_loss) > self.early_stopping_min_improvement:
                 es_loss = loss_value
@@ -238,6 +242,9 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
 
         if self._writer is not None:
             self._writer.close()
+
+        # Store final loss for external access
+        self._final_loss = loss_value
 
         self._log('Done')
 
@@ -329,3 +336,8 @@ class ParametricTSNE(BaseEstimator, TransformerMixin):
     @property
     def model(self):
         return self._model
+
+    @property
+    def final_loss(self):
+        """Return the final loss value from training, or None if not trained."""
+        return getattr(self, "_final_loss", None)

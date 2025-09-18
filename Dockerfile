@@ -2,7 +2,7 @@ FROM pytorch/pytorch:2.6.0-cuda11.8-cudnn9-devel
 
 # Install git as root
 USER root
-RUN apt-get update && apt-get install -y git && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git tmux && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Switch back to jovyan user (default Jupyter user)
 # USER jovyan

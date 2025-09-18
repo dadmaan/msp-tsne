@@ -1,7 +1,7 @@
 # Hyperparameter Tuning Configuration for MSP t-SNE
 
 # Project settings
-project: "msp-tsne-sweep"
+project: "msp-tsne-MNIST-sweep"
 sweep_count: 50
 
 # Mode settings

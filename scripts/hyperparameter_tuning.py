@@ -1,54 +1,25 @@
+#!/usr/bin/env python3
+"""
+Hyperparameter tuning with wandb sweeps
+"""
 import wandb
 from msp_tsne import MultiscaleParametricTSNE
 from msp_tsne.data_loader import load_data
 from msp_tsne.preprocess import preprocess
-import numpy as np
-from sklearn.pipeline import Pipeline
-from sklearn.datasets import load_digits
+from msp_tsne.utils import (
+    calculate_neighborhood_preservation,
+    calculate_evaluation_metrics,
+    create_model_config,
+    create_temp_model_dir,
+    cleanup_temp_files
+)
 import time
-from sklearn.manifold import trustworthiness
-from sklearn.metrics import silhouette_score
-from sklearn.neighbors import NearestNeighbors
 import yaml
 import argparse
 import sys
 import torch
 import os
 
-def calculate_neighborhood_preservation(X_original, X_embedded, k=12):
-    """
-    Calculate neighborhood preservation ratio between original and embedded spaces.
-
-    Args:
-        X_original: Original high-dimensional data
-        X_embedded: Embedded low-dimensional data
-        k: Number of neighbors to consider
-
-    Returns:
-        Float: Neighborhood preservation ratio (0-1, higher is better)
-    """
-    n_samples = X_original.shape[0]
-
-    # Find k-nearest neighbors in original space
-    nbrs_original = NearestNeighbors(n_neighbors=k+1, algorithm='auto').fit(X_original)
-    _, indices_original = nbrs_original.kneighbors(X_original)
-
-    # Find k-nearest neighbors in embedded space
-    nbrs_embedded = NearestNeighbors(n_neighbors=k+1, algorithm='auto').fit(X_embedded)
-    _, indices_embedded = nbrs_embedded.kneighbors(X_embedded)
-
-    # Calculate preservation ratio
-    preservation_scores = []
-    for i in range(n_samples):
-        # Get neighbors (exclude self which is always first)
-        neighbors_original = set(indices_original[i][1:])
-        neighbors_embedded = set(indices_embedded[i][1:])
-
-        # Calculate overlap
-        overlap = len(neighbors_original.intersection(neighbors_embedded))
-        preservation_scores.append(overlap / k)
-
-    return np.mean(preservation_scores)
 
 def run_experiment():
     # Use a 'with' statement for the run to ensure wandb.finish() is called
@@ -57,10 +28,10 @@ def run_experiment():
 
         # Load data using new data loader (fallback to load_digits if no path specified)
         data_config = {'features': None, 'labels': None, 'label_column': None, 'format': 'auto'}
-        X_mnist, y_mnist = load_data(data_config)
+        X, y = load_data(data_config)
 
         # Preprocess data using new preprocessing pipeline
-        X_scaled, y_encoded, fitted_scaler, label_encoder = preprocess(X_mnist, y_mnist, config)
+        X_scaled, y_encoded, fitted_scaler, label_encoder = preprocess(X, y, config)
 
         # Create the model, casting hyperparameters from the sweep to their correct types
         model = MultiscaleParametricTSNE(
@@ -88,63 +59,31 @@ def run_experiment():
 
         training_time = time.time() - start_time
 
-        # Calculate evaluation metrics
-        trust_score = trustworthiness(X_scaled, X_transformed, n_neighbors=12)
-        # Use original labels for silhouette score (encoded labels work too, but original is clearer)
-        silhouette = silhouette_score(X_transformed, y_mnist)
-        neighborhood_preservation = calculate_neighborhood_preservation(X_scaled, X_transformed, k=12)
-
-        # Get final loss from model (accessing a private attribute can be fragile)
-        final_loss = getattr(model, '_final_loss', None)
+        # Calculate evaluation metrics using utility function
+        metrics = calculate_evaluation_metrics(X_scaled, X_transformed, y, model, k=12)
+        metrics['training_time'] = training_time
 
         # Log metrics to W&B. Hyperparameters are logged automatically via config.
-        wandb.log({
-            "trustworthiness_score": trust_score,
-            "silhouette_score": silhouette,
-            "neighborhood_preservation_ratio": neighborhood_preservation,
-            "training_time": training_time,
-            "final_kl_loss": final_loss
-        })
+        wandb.log(metrics)
 
-        # Save model artifacts if this is the best performing run based on trustworthiness score
-        # Create a temporary directory for model saving
-        model_dir = "temp_model_artifacts"
-        os.makedirs(model_dir, exist_ok=True)
+        # Save model artifacts for W&B
+        model_dir = create_temp_model_dir()
 
         # Save the trained neural network model
         model_path = os.path.join(model_dir, "msp_tsne_model.pth")
         torch.save(model._model.state_dict(), model_path)
-
-        # Save model artifacts to W&B
         wandb.save(model_path)
 
-        # Also save the model configuration for reproducibility
-        config_path = os.path.join(model_dir, "model_config.pt")
-        model_config = {
-            'n_components': model.n_components,
-            'nl1': model.nl1,
-            'nl2': model.nl2,
-            'nl3': model.nl3,
-            'alpha': model.alpha,
-            'lr': model.lr,
-            'n_iter': model.n_iter,
-            'batch_size': model.batch_size,
-            'early_exaggeration_epochs': model.early_exaggeration_epochs,
-            'early_exaggeration_value': model.early_exaggeration_value,
-            'early_stopping_epochs': model.early_stopping_epochs,
-            'early_stopping_min_improvement': model.early_stopping_min_improvement,
-            'device': str(model.device)
-        }
-        torch.save(model_config, config_path)
+        # Save the model configuration using utility function
+        config_path = os.path.join(model_dir, "model_config.json")
+        model_config = create_model_config(model, training_time, config)
+        with open(config_path, 'w') as f:
+            import json
+            json.dump(model_config, f, indent=2, default=str)
         wandb.save(config_path)
 
         # Clean up temporary files
-        try:
-            os.remove(model_path)
-            os.remove(config_path)
-            os.rmdir(model_dir)
-        except OSError:
-            pass  # Directory might not be empty or files might be locked
+        cleanup_temp_files(model_path, config_path, model_dir)
 
 def smoke_test(config):
     """

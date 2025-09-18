@@ -6,7 +6,9 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 [![W&B Sweeps](https://img.shields.io/badge/W%26B-Sweeps-orange)](https://wandb.ai/)
 
-PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE), featuring:
+PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE)
+
+> **Note:** The migrated code from the [original forked repository](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE) to TensorFlow 2.X can be found in the `tf_2x` branch.
 
 ## Table of Contents
 1. [Getting Started](#getting-started)

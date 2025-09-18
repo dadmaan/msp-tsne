@@ -1,0 +1,74 @@
+# Hyperparameter Tuning Configuration for MSP t-SNE
+
+# Project settings
+project: "msp-tsne-MNIST-sweep"
+sweep_count: 50
+
+# Mode settings
+modes:
+  sweep:
+    enabled: true
+  smoke_test:
+    enabled: true
+    sample_size: 50
+    iterations: 5
+    batch_size: 10
+    early_exaggeration_epochs: 1
+    verbose: 0
+
+# Wandb sweep configuration
+sweep_config:
+  method: 'bayes'
+  metric:
+    name: 'trustworthiness_score'
+    goal: 'maximize'
+  parameters:
+    # Neural Architecture - use int_uniform for integer values
+    nl1:
+      distribution: 'int_uniform'
+      min: 500
+      max: 1500
+    nl2:
+      distribution: 'int_uniform'
+      min: 250
+      max: 750
+    nl3:
+      distribution: 'int_uniform'
+      min: 100
+      max: 500
+
+    # Training Parameters
+    n_iter:
+      distribution: 'int_uniform'
+      min: 500
+      max: 2000
+    batch_size:
+      distribution: 'int_uniform'
+      min: 100
+      max: 1000
+    early_exaggeration_epochs:
+      distribution: 'int_uniform'
+      min: 25
+      max: 100
+
+    # Optimization Parameters - use log distribution for learning rate
+    early_exaggeration_value:
+      distribution: 'uniform'
+      min: 2.0
+      max: 8.0
+    early_stopping_epochs:
+      distribution: 'int_uniform'
+      min: 100
+      max: 1000
+    early_stopping_min_improvement:
+      values: [0.0001, 0.0005, 0.001, 0.005, 0.01]
+    lr:
+      values: [0.0001, 0.0005, 0.001, 0.005, 0.01]
+    alpha:
+      distribution: 'uniform'
+      min: 0.5
+      max: 2.0
+
+    # Preprocessing
+    scaler:
+      values: ['StandardScaler', 'MinMaxScaler']

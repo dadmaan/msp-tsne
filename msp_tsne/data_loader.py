@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pickle
+import json
 from pathlib import Path
 from typing import Tuple, Optional, Union
 from sklearn.datasets import load_digits
@@ -19,8 +20,10 @@ def _detect_format(file_path: Union[str, Path]) -> str:
         return 'npz'
     elif suffix in ['.pkl', '.pickle']:
         return 'pkl'
+    elif suffix == '.json':
+        return 'json'
     else:
-        raise ValueError(f"Unsupported file format: {suffix}. Supported: .csv, .npy, .npz, .pkl")
+        raise ValueError(f"Unsupported file format: {suffix}. Supported: .csv, .npy, .npz, .pkl, .json")
 
 
 def _load_file(file_path: Union[str, Path], format_type: str) -> Union[np.ndarray, pd.DataFrame]:
@@ -37,6 +40,28 @@ def _load_file(file_path: Union[str, Path], format_type: str) -> Union[np.ndarra
     elif format_type == 'pkl':
         with open(file_path, 'rb') as f:
             return pickle.load(f)
+    elif format_type == 'json':
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+
+        # Handle different JSON structures
+        if isinstance(data, list):
+            # Array of objects format: [{"col1": val1, "col2": val2}, ...]
+            return pd.DataFrame.from_records(data)
+        elif isinstance(data, dict):
+            # Dictionary format - check for common keys
+            if 'data' in data:
+                # Matrix format: {"data": [[...], [...]], ...}
+                return np.array(data['data'])
+            elif 'features' in data:
+                # Features format: {"features": [[...], [...]]}
+                return np.array(data['features'])
+            else:
+                # Try to convert dict to DataFrame
+                return pd.DataFrame(data)
+        else:
+            # Direct array format
+            return np.array(data)
     else:
         raise ValueError(f"Unsupported format: {format_type}")
 
@@ -51,11 +76,17 @@ def _validate_config(data_config: dict) -> None:
 
 
 def _extract_labels_from_features(features_data: Union[np.ndarray, pd.DataFrame],
-                                label_column: str) -> Tuple[Union[np.ndarray, pd.DataFrame], np.ndarray]:
+                                label_column: str,
+                                allow_missing: bool = True) -> Tuple[Union[np.ndarray, pd.DataFrame], Optional[np.ndarray]]:
     """Extract labels from features data and remove label column."""
     if isinstance(features_data, pd.DataFrame):
         if label_column not in features_data.columns:
-            raise ValueError(f"Column '{label_column}' not found in features. Available columns: {list(features_data.columns)}")
+            if allow_missing:
+                print(f"Warning: Column '{label_column}' not found in features. Available columns: {list(features_data.columns)}")
+                print("Proceeding without labels...")
+                return features_data, None
+            else:
+                raise ValueError(f"Column '{label_column}' not found in features. Available columns: {list(features_data.columns)}")
 
         labels = features_data[label_column].values
         features = features_data.drop(columns=[label_column])
@@ -69,7 +100,12 @@ def _extract_labels_from_features(features_data: Union[np.ndarray, pd.DataFrame]
             # Try to interpret label_column as integer index
             col_idx = int(label_column)
             if col_idx >= features_data.shape[1] or col_idx < -features_data.shape[1]:
-                raise ValueError(f"Column index {col_idx} out of range for array with {features_data.shape[1]} columns")
+                if allow_missing:
+                    print(f"Warning: Column index {col_idx} out of range for array with {features_data.shape[1]} columns")
+                    print("Proceeding without labels...")
+                    return features_data, None
+                else:
+                    raise ValueError(f"Column index {col_idx} out of range for array with {features_data.shape[1]} columns")
 
             labels = features_data[:, col_idx]
             features = np.delete(features_data, col_idx, axis=1)
@@ -77,7 +113,12 @@ def _extract_labels_from_features(features_data: Union[np.ndarray, pd.DataFrame]
 
         except ValueError as e:
             if "invalid literal" in str(e):
-                raise ValueError(f"For numpy arrays, label_column must be an integer index, got '{label_column}'")
+                if allow_missing:
+                    print(f"Warning: For numpy arrays, label_column must be an integer index, got '{label_column}'")
+                    print("Proceeding without labels...")
+                    return features_data, None
+                else:
+                    raise ValueError(f"For numpy arrays, label_column must be an integer index, got '{label_column}'")
             raise
 
     else:
@@ -93,7 +134,8 @@ def load_data(data_config: dict) -> Tuple[np.ndarray, Optional[np.ndarray]]:
             - features: Path to features file or null
             - labels: Path to separate labels file or null
             - label_column: Column name/index to extract from features or null
-            - format: File format ('auto', 'csv', 'npy', 'npz', 'pkl')
+            - format: File format ('auto', 'csv', 'npy', 'npz', 'pkl', 'json')
+            - allow_missing_labels: Whether to allow missing label columns (default: true)
 
     Returns:
         Tuple of (X, y) where:
@@ -106,6 +148,7 @@ def load_data(data_config: dict) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     labels_path = data_config.get('labels')
     label_column = data_config.get('label_column')
     format_type = data_config.get('format', 'auto')
+    allow_missing_labels = data_config.get('allow_missing_labels', True)
 
     # Fallback to sklearn digits dataset
     if features_path is None:
@@ -128,7 +171,7 @@ def load_data(data_config: dict) -> Tuple[np.ndarray, Optional[np.ndarray]]:
 
     if label_column is not None:
         # Extract labels from features data
-        features_data, labels = _extract_labels_from_features(features_data, label_column)
+        features_data, labels = _extract_labels_from_features(features_data, label_column, allow_missing=allow_missing_labels)
 
     elif labels_path is not None:
         # Load separate labels file

@@ -69,10 +69,15 @@ def run_experiment():
         # Save model artifacts for W&B
         model_dir = create_temp_model_dir()
 
-        # Save the trained neural network model
-        model_path = os.path.join(model_dir, "msp_tsne_model.pth")
-        torch.save(model._model.state_dict(), model_path)
-        wandb.save(model_path)
+        save_model = config.get('saving', {}).get('save_model', False)
+
+        if save_model:
+            # Save the trained neural network model
+            model_path = os.path.join(model_dir, "msp_tsne_model.pth")
+            torch.save(model._model.state_dict(), model_path)
+            wandb.save(model_path)
+        else:
+            model_path = None
 
         # Save the model configuration using utility function
         config_path = os.path.join(model_dir, "model_config.json")
@@ -83,7 +88,10 @@ def run_experiment():
         wandb.save(config_path)
 
         # Clean up temporary files
-        cleanup_temp_files(model_path, config_path, model_dir)
+        if save_model:
+            cleanup_temp_files(model_path, config_path, model_dir)
+        else:
+            cleanup_temp_files(config_path, model_dir)
 
 def smoke_test(config):
     """

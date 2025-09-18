@@ -2,7 +2,7 @@
 
 # Data configuration
 data:
-  features: /home/jovyan/work/data/features.json  # Path to features file, null = use sklearn.datasets.load_digits()
+  features: null  # Path to features file, null = use sklearn.datasets.load_digits()
   labels: null    # Path to separate labels file
   label_column: null  # Column name in features file to extract as labels
   format: auto    # File format: auto, csv, npy, npz, pkl
@@ -10,7 +10,7 @@ data:
 
 # Project settings
 project: "msp-tsne-MNIST-sweep"
-sweep_count: 50
+sweep_count: 1000
 
 # Mode settings
 modes:
@@ -24,11 +24,15 @@ modes:
     early_exaggeration_epochs: 1
     verbose: 0
 
+# Saving settings
+saving:
+  save_model: false  # Set to true to save/upload trained models per run
+
 # Wandb sweep configuration
 sweep_config:
   method: 'bayes'
   metric:
-    name: 'trustworthiness_score'
+    name: 'final_kl_loss'
     goal: 'maximize'
   parameters:
     # Neural Architecture - use int_uniform for integer values

@@ -1,7 +1,8 @@
 import wandb
 from msp_tsne import MultiscaleParametricTSNE
+from msp_tsne.data_loader import load_data
+from msp_tsne.preprocess import preprocess
 import numpy as np
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.pipeline import Pipeline
 from sklearn.datasets import load_digits
 import time
@@ -54,14 +55,12 @@ def run_experiment():
     with wandb.init() as run:
         config = run.config
 
-        # Load data
-        X_mnist, y_mnist = load_digits(return_X_y=True)
+        # Load data using new data loader (fallback to load_digits if no path specified)
+        data_config = {'features': None, 'labels': None, 'label_column': None, 'format': 'auto'}
+        X_mnist, y_mnist = load_data(data_config)
 
-        # Choose scaler based on config
-        if config.scaler == "StandardScaler":
-            scaler = StandardScaler()
-        else:  # MinMaxScaler
-            scaler = MinMaxScaler(feature_range=(0, 1))
+        # Preprocess data using new preprocessing pipeline
+        X_scaled, y_encoded, fitted_scaler, label_encoder = preprocess(X_mnist, y_mnist, config)
 
         # Create the model, casting hyperparameters from the sweep to their correct types
         model = MultiscaleParametricTSNE(
@@ -81,25 +80,17 @@ def run_experiment():
             verbose=1
         )
 
-        # Create pipeline
-        pipeline = Pipeline([
-            ('scaler', scaler),
-            ('msp-tsne', model)
-        ])
-
         # Track training time
         start_time = time.time()
 
-        # Fit the pipeline and transform the data
-        X_transformed = pipeline.fit_transform(X_mnist)
+        # Fit the model and transform the data (no pipeline needed, data already preprocessed)
+        X_transformed = model.fit_transform(X_scaled)
 
         training_time = time.time() - start_time
 
-        # Retrieve the scaled data from the fitted pipeline for metric calculation
-        X_scaled = pipeline.named_steps['scaler'].transform(X_mnist)
-
         # Calculate evaluation metrics
         trust_score = trustworthiness(X_scaled, X_transformed, n_neighbors=12)
+        # Use original labels for silhouette score (encoded labels work too, but original is clearer)
         silhouette = silhouette_score(X_transformed, y_mnist)
         neighborhood_preservation = calculate_neighborhood_preservation(X_scaled, X_transformed, k=12)
 
@@ -164,11 +155,14 @@ def smoke_test(config):
     smoke_config = config['modes']['smoke_test']
 
     # Use a very small subset of the data
-    X_mnist, y_mnist = load_digits(return_X_y=True)
+    data_config = {'features': None, 'labels': None, 'label_column': None, 'format': 'auto'}
+    X_mnist, y_mnist = load_data(data_config)
     sample_size = smoke_config['sample_size']
     X_smoke, y_smoke = X_mnist[:sample_size], y_mnist[:sample_size]
 
-    scaler = StandardScaler()
+    # Preprocess data using new preprocessing pipeline with StandardScaler for smoke test
+    smoke_preprocess_config = {'scaler': 'StandardScaler'}
+    X_scaled, y_encoded, fitted_scaler, label_encoder = preprocess(X_smoke, y_smoke, smoke_preprocess_config)
 
     # Use a fixed, minimal set of hyperparameters from config
     model = MultiscaleParametricTSNE(
@@ -179,15 +173,10 @@ def smoke_test(config):
         verbose=smoke_config['verbose']
     )
 
-    pipeline = Pipeline([
-        ('scaler', scaler),
-        ('msp-tsne', model)
-    ])
-
     try:
-        # Check if the pipeline can fit and transform without errors
+        # Check if the model can fit and transform without errors (no pipeline needed)
         start_time = time.time()
-        X_transformed = pipeline.fit_transform(X_smoke)
+        X_transformed = model.fit_transform(X_scaled)
         end_time = time.time()
 
         # Simple assertions to check output

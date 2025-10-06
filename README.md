@@ -1,7 +1,6 @@
 
 # PyTorch Multiscale Parametric t-SNE (MSP-tSNE)
 
-## Badges
 ![Python](https://img.shields.io/badge/python-3.6%2B-blue.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 [![W&B Sweeps](https://img.shields.io/badge/W%26B-Sweeps-orange)](https://wandb.ai/)
@@ -11,13 +10,17 @@ PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/Franc
 > **Note:** The migrated code from the [original forked repository](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE) to TensorFlow 2.X can be found in the `tf_2x` branch.
 
 ## Table of Contents
-1. [Getting Started](#getting-started)
-2. [Sklearn Pipeline Usage](#sklearn-pipeline-usage)
-3. [Training Script](#training-script)
-4. [Hyperparameter Tuning & W&B Integration](#hyperparameter-tuning--wb-integration)
-5. [Neighborhood Preservation Metric](#neighborhood-preservation-metric)
-6. [Model Artifacts](#model-artifacts)
-7. [Acknowledgements](#authors--acknowledgements)
+- [PyTorch Multiscale Parametric t-SNE (MSP-tSNE)](#pytorch-multiscale-parametric-t-sne-msp-tsne)
+	- [Table of Contents](#table-of-contents)
+	- [Getting Started](#getting-started)
+		- [Prerequisites](#prerequisites)
+		- [Installation](#installation)
+	- [Sklearn Pipeline Usage](#sklearn-pipeline-usage)
+	- [Training Script](#training-script)
+	- [Hyperparameter Tuning \& W\&B Integration](#hyperparameter-tuning--wb-integration)
+	- [Neighborhood Preservation Metric](#neighborhood-preservation-metric)
+	- [Model Artifacts](#model-artifacts)
+	- [Acknowledgements](#acknowledgements)
 
 ---
 

@@ -7,8 +7,6 @@
 
 PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE)
 
-> **Note:** The migrated code from the [original forked repository](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE) to TensorFlow 2.X can be found in the `tf_2x` branch.
-
 ## Table of Contents
 - [PyTorch Multiscale Parametric t-SNE (MSP-tSNE)](#pytorch-multiscale-parametric-t-sne-msp-tsne)
 	- [Table of Contents](#table-of-contents)
@@ -155,3 +153,4 @@ Artifacts saved for each experiment:
 ## Acknowledgements
 
 - This repository was originally forked from [Francesco Crecchi's implementation](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE).
+  - The migrated code from the [original forked repository](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE) to TensorFlow 2.X can be found in the `tf_2x` branch.

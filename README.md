@@ -8,6 +8,7 @@
 PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/FrancescoCrecchi/Multiscale-Parametric-t-SNE)
 
 ## Table of Contents
+
 - [PyTorch Multiscale Parametric t-SNE (MSP-tSNE)](#pytorch-multiscale-parametric-t-sne-msp-tsne)
 	- [Table of Contents](#table-of-contents)
 	- [Getting Started](#getting-started)
@@ -25,9 +26,11 @@ PyTorch implementation of [Multiscale Parametric t-SNE](https://github.com/Franc
 ## Getting Started
 
 ### Prerequisites
+
 Tested with Python 3.6+. All required packages are listed in `setup.py` and `requirements.txt`.
 
 ### Installation
+
 ```bash
 pip install .
 ```
@@ -43,6 +46,7 @@ python scripts/train_sklearn_tsne.py --config configs/sklearn_config.yml
 ```
 
 **Features:**
+
 - Loads sklearn digits dataset
 - Preprocessing (StandardScaler/MinMaxScaler)
 - MSP t-SNE embedding
@@ -50,21 +54,22 @@ python scripts/train_sklearn_tsne.py --config configs/sklearn_config.yml
 - Saves pipeline, embeddings, metrics
 
 **Example config:**
+
 ```yaml
 data:
-	source: sklearn_digits
+ source: sklearn_digits
 preprocessing:
-	scaler: StandardScaler
+ scaler: StandardScaler
 algorithm:
-	n_components: 2
-	n_iter: 1000
-	batch_size: 500
-	nl1: 1000
-	nl2: 500
-	nl3: 250
+ n_components: 2
+ n_iter: 1000
+ batch_size: 500
+ nl1: 1000
+ nl2: 500
+ nl3: 250
 output:
-	model_path: "./models/msp_tsne_pipeline.pkl"
-	embeddings_path: "./models/msp_tsne_embeddings.npy"
+ model_path: "./models/msp_tsne_pipeline.pkl"
+ embeddings_path: "./models/msp_tsne_embeddings.npy"
 ```
 
 ---
@@ -78,26 +83,28 @@ python scripts/train_msp_tsne.py --config configs/train_config.yml [--seed SEED]
 ```
 
 **Arguments:**
+
 - `--config`: Path to YAML config (required)
 - `--seed`: Random seed (default: 42)
 
 **Example config:**
+
 ```yaml
 data:
-	features: null
-	labels: null
-	label_column: null
-	format: auto
+ features: null
+ labels: null
+ label_column: null
+ format: auto
 preprocessing:
-	scaler: StandardScaler
+ scaler: StandardScaler
 model:
-	n_components: 2
-	n_iter: 1000
-	batch_size: 500
-	early_exaggeration_epochs: 50
-	early_exaggeration_value: 4.0
-	early_stopping_epochs: 1000
-	early_stopping_min_improvement: 0.01
+ n_components: 2
+ n_iter: 1000
+ batch_size: 500
+ early_exaggeration_epochs: 50
+ early_exaggeration_value: 4.0
+ early_stopping_epochs: 1000
+ early_stopping_min_improvement: 0.01
 ```
 
 ---
@@ -111,12 +118,14 @@ Automated hyperparameter sweeping with Weights & Biases (W&B):
 **Config:** `configs/hp_config.yml`
 
 **Usage:**
+
 ```bash
 python scripts/hyperparameter_tuning.py --config configs/hp_config.yml --mode sweep --count 50
 python scripts/hyperparameter_tuning.py --config configs/hp_config.yml --mode smoke_test
 ```
 
 **Features:**
+
 - W&B integration for experiment tracking
 - Bayesian optimization sweeps
 - Full parameter search space (neural architecture, training, optimization, preprocessing)
@@ -124,6 +133,7 @@ python scripts/hyperparameter_tuning.py --config configs/hp_config.yml --mode sm
 - Parallel execution with `wandb.agent()`
 
 **Metrics Tracked:**
+
 - Trustworthiness score (primary)
 - Silhouette score
 - Neighborhood preservation ratio
@@ -135,6 +145,7 @@ python scripts/hyperparameter_tuning.py --config configs/hp_config.yml --mode sm
 ## Neighborhood Preservation Metric
 
 Measures how well k-nearest neighbor relationships are preserved between original and embedded spaces.
+
 - Uses sklearn's NearestNeighbors
 - Overlap percentage for each sample
 - Logged as `neighborhood_preservation_ratio` in W&B
@@ -144,6 +155,7 @@ Measures how well k-nearest neighbor relationships are preserved between origina
 ## Model Artifacts
 
 Artifacts saved for each experiment:
+
 - `msp_tsne_model.pth`: Trained neural network state dict
 - `model_config.pt`: Model configuration parameters
 - Uploaded to W&B via `wandb.save()`
